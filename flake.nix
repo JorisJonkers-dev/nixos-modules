@@ -100,6 +100,13 @@
         module-fixture = pkgs.runCommand "nixos-modules-module-fixture" {} ''
           printf '%s\n' '${fixtureDrvPath}' > "$out"
         '';
+        # Requires= would let a tailscaled restart stop k3s and leave it stopped.
+        k3s-soft-dependencies = let
+          k3s = fixture.config.systemd.services.k3s;
+        in
+          assert lib.assertMsg (builtins.elem "network-online.target" k3s.wants) "k3s must Want its requiredServices";
+          assert lib.assertMsg (!(builtins.elem "network-online.target" k3s.requires)) "k3s must not Require its requiredServices";
+            pkgs.runCommand "nixos-modules-k3s-soft-dependencies" {} "touch $out";
       }
     );
   };

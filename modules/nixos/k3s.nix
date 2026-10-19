@@ -95,7 +95,7 @@ in {
     requiredServices = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [];
-      description = "Optional systemd services that k3s should require and start after.";
+      description = "Systemd services k3s pulls in and starts after (Wants=, not Requires=, so restarting one never stops k3s).";
     };
 
     openFirewall = lib.mkOption {
@@ -166,7 +166,7 @@ in {
     (lib.mkIf (cfg.requiredServices != []) {
       systemd.services.k3s = {
         after = cfg.requiredServices;
-        requires = cfg.requiredServices;
+        wants = cfg.requiredServices;
       };
     })
 
