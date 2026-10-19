@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/JorisJonkers-dev/nixos-modules/compare/v0.4.0...v0.4.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* **k3s:** want requiredServices instead of requiring them, so restarting one never stops k3s ([#14](https://github.com/JorisJonkers-dev/nixos-modules/issues/14)) ([e5dac3d](https://github.com/JorisJonkers-dev/nixos-modules/commit/e5dac3d32a216b2cc4ae9632444f6bb945b8f8e4))
+
 ## [0.4.0](https://github.com/JorisJonkers-dev/nix-platform/compare/v0.3.0...v0.4.0) (2026-06-29)
 
 
