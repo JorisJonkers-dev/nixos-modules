@@ -31,7 +31,7 @@
 
   'nix':
     'name': 'Nix CI'
-    'uses': 'JorisJonkers-dev/github-workflows/.github/workflows/nix-ci.yml@v0.10.2'
+    'uses': 'JorisJonkers-dev/github-workflows/.github/workflows/nix-ci.yml@f8f0a5ae583913de18143bbbbe0db9ecab970435' # v0.45.0
     'with':
       'format-command': ''
       'statix-command': ''
