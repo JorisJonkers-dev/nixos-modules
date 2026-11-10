@@ -66,6 +66,8 @@ Available module outputs:
 - `nixosModules.serviceSamba`
 - `nixosModules.serviceOllamaRocm`
 - `nixosModules.serviceBtrfsBackupSnapshots`
+- `nixosModules.hardwareAmdCpu`
+- `nixosModules.hardwareLaptop`
 - `nixosModules.hardwareRaspberryPiAarch64`
 - `nixosModules.imageRaspberryPiSdImage`
 
@@ -105,6 +107,37 @@ integrated-GPU `platformBlueprints.roles.gpuAmd`, so CI proves the non-gaming
 stack evaluates and builds. The `gpu-amd-modes` check compares that APU host
 against a discrete-card fixture: overdrive, LACT and the unfree ROCm names must
 follow `mode`.
+
+## Reusable Hardware
+
+The hardware modules cover the machine itself rather than a role:
+
+- `platformBlueprints.hardware.amdCpu` enables AMD microcode updates, the
+  `amd_pstate` driver and `kvm-amd`.
+- `platformBlueprints.hardware.laptop` enables power profiles, firmware
+  updates, touchpad and suspend handling. `convertible.enable` adds the iio
+  sensor GNOME uses for auto-rotate and tablet mode, and
+  `batteryChargeThreshold` caps charging on firmware that supports it.
+
+```nix
+{
+  imports = [
+    inputs.nixos-modules.nixosModules.hardwareAmdCpu
+    inputs.nixos-modules.nixosModules.hardwareLaptop
+  ];
+
+  platformBlueprints.hardware.amdCpu.enable = true;
+  platformBlueprints.hardware.laptop = {
+    enable = true;
+    convertible.enable = true;
+    batteryChargeThreshold = 80;
+  };
+}
+```
+
+The `hardware-laptop` check (x86_64-linux only) asserts those settings on the
+example workstation and that a plain laptop leaves the convertible and
+threshold parts off.
 
 ## Reusable Services
 
