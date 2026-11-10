@@ -3,11 +3,14 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    agent-kit.url = "github:JorisJonkers-dev/agent-kit";
+    agent-kit.flake = false;
   };
 
   outputs = {
     self,
     nixpkgs,
+    agent-kit,
   }: let
     lib = nixpkgs.lib;
     systems = [
@@ -20,6 +23,10 @@
       import ./tests/module-fixture.nix {
         inherit self nixpkgs system;
       };
+    agentKitPackages = import "${agent-kit}/registry/generated/nixos/packages.nix";
+    devWorkstationRole = import ./modules/nixos/roles/dev-workstation.nix {
+      inherit self agentKitPackages;
+    };
   in {
     nixosModules = rec {
       base = ./modules/nixos/base.nix;
@@ -34,6 +41,7 @@
       roleGpuAmd = ./modules/nixos/roles/gpu-amd.nix;
       roleGpuNvidia = ./modules/nixos/roles/gpu-nvidia.nix;
       roleNodeLabelApplier = ./modules/nixos/roles/node-label-applier.nix;
+      roleDevWorkstation = devWorkstationRole;
 
       serviceTailscale = ./modules/nixos/services/tailscale.nix;
       serviceMediaStorage = ./modules/nixos/services/media-storage.nix;
@@ -62,6 +70,7 @@
         gpuAmd = roleGpuAmd;
         gpuNvidia = roleGpuNvidia;
         nodeLabelApplier = roleNodeLabelApplier;
+        devWorkstation = devWorkstationRole;
         controlPlane = roleControlPlane;
         worker = roleWorker;
         networkTailscale = roleNetworkTailscale;
@@ -109,18 +118,44 @@
         pkgs = mkPkgs system;
         fixture = moduleFixture system;
         fixtureDrvPath = builtins.unsafeDiscardStringContext fixture.config.system.build.toplevel.drvPath;
-      in {
-        module-fixture = pkgs.runCommand "nixos-modules-module-fixture" {} ''
-          printf '%s\n' '${fixtureDrvPath}' > "$out"
-        '';
-        # Requires= would let a tailscaled restart stop k3s and leave it stopped.
-        k3s-soft-dependencies = let
-          k3s = fixture.config.systemd.services.k3s;
-        in
-          assert lib.assertMsg (builtins.elem "network-online.target" k3s.wants) "k3s must Want its requiredServices";
-          assert lib.assertMsg (!(builtins.elem "network-online.target" k3s.requires)) "k3s must not Require its requiredServices";
-            pkgs.runCommand "nixos-modules-k3s-soft-dependencies" {} "touch $out";
-      }
+      in
+        (lib.optionalAttrs (system == "x86_64-linux") {
+          workstation-example = let
+            workstation = import ./tests/workstation-example.nix {
+              inherit self nixpkgs;
+              system = "x86_64-linux";
+            };
+            rolePackages = workstation.config.platformBlueprints.roles.devWorkstation.packages;
+            installedOutPaths = builtins.map (pkg: pkg.outPath) workstation.config.environment.systemPackages;
+            corePackages = lib.zipListsWith (entry: pkg: {inherit entry pkg;}) agentKitPackages.core rolePackages;
+            missingCore =
+              lib.findFirst ({
+                entry,
+                pkg,
+              }:
+                !builtins.elem pkg.outPath installedOutPaths)
+              null
+              corePackages;
+          in
+            assert lib.assertMsg (missingCore == null) "workstation-example must install agent-kit core package ${missingCore.entry.attr}";
+            # References the built toplevel, unlike module-fixture's drvPath,
+            # so `nix flake check` builds the whole example workstation.
+              pkgs.runCommand "nixos-modules-workstation-example" {} ''
+                ln -s ${workstation.config.system.build.toplevel} "$out"
+              '';
+        })
+        // {
+          module-fixture = pkgs.runCommand "nixos-modules-module-fixture" {} ''
+            printf '%s\n' '${fixtureDrvPath}' > "$out"
+          '';
+          # Requires= would let a tailscaled restart stop k3s and leave it stopped.
+          k3s-soft-dependencies = let
+            k3s = fixture.config.systemd.services.k3s;
+          in
+            assert lib.assertMsg (builtins.elem "network-online.target" k3s.wants) "k3s must Want its requiredServices";
+            assert lib.assertMsg (!(builtins.elem "network-online.target" k3s.requires)) "k3s must not Require its requiredServices";
+              pkgs.runCommand "nixos-modules-k3s-soft-dependencies" {} "touch $out";
+        }
     );
   };
 }

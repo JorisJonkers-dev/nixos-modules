@@ -54,6 +54,7 @@ Available module outputs:
 - `nixosModules.roleGpuAmd`
 - `nixosModules.roleGpuNvidia`
 - `nixosModules.roleNodeLabelApplier`
+- `nixosModules.roleDevWorkstation`
 - `nixosModules.roleControlPlane`
 - `nixosModules.roleWorker`
 - `nixosModules.roleNetworkTailscale`
@@ -82,9 +83,17 @@ inventory:
   toolkit, and NVIDIA GPU node labels.
 - `platformBlueprints.roles.nodeLabelApplier` applies caller-owned labels and
   taints with `kubectl`.
+- `platformBlueprints.roles.devWorkstation` installs the toolchains, language
+  servers and CLI tools agent-kit lists for NixOS. The list comes from
+  agent-kit's registry (`registry/generated/nixos/packages.nix`, `core` group),
+  so tools are declared there, not here.
 
 Consumers own all sensitive inputs: node names, join tokens, device paths,
 driver branch overrides, and any cluster-specific labels.
+
+The `workstation-example` check (x86_64-linux only) builds an example
+workstation that enables `platformBlueprints.roles.devWorkstation`, so CI
+proves the non-gaming stack evaluates and builds.
 
 ## Reusable Services
 
