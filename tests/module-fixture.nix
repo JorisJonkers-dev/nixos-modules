@@ -98,6 +98,12 @@ in
             installUtilities = false;
           };
 
+          # The role is imported but not enabled here; the mode is pinned so
+          # the fixture stays on the discrete defaults if it is turned on.
+          platformBlueprints.roles.gpuAmd = {
+            mode = "discrete";
+          };
+
           platformBlueprints.services.tailscale = {
             enable = true;
             extraUpFlags = ["--accept-dns=false"];

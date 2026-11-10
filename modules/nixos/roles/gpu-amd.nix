@@ -16,17 +16,58 @@
     '';
   };
 
-  unfreeNamePrefixes = [
+  # The ROCm inspection tools belong to the compute stack, so they are not part
+  # of the graphics package list.
+  rocmTools = [
+    rocmSmiWrapped
+    pkgs.rocmPackages.rocminfo
+  ];
+
+  # The graphics stack pulls in amdgpu- and amdvlk; hip and rocm only arrive
+  # with the compute stack.
+  unfreeGraphicsPackages = [
     "amdgpu-"
     "amdvlk"
-    "hip"
-    "rocm"
+  ];
+  # Prefixes: the compute stack is many packages (rocminfo, rocm-smi, hipblas).
+  unfreeRocmPackages = [
+    "hip*"
+    "rocm*"
   ];
 in {
-  imports = [./gpu-utility.nix];
+  imports = [
+    ./gpu-utility.nix
+    ../unfree.nix
+  ];
 
   options.platformBlueprints.roles.gpuAmd = {
     enable = lib.mkEnableOption "AMD GPU host role with Mesa, ROCm, and scheduler labels";
+
+    mode = lib.mkOption {
+      type = lib.types.enum ["apu" "discrete"];
+      description = "apu for an integrated GPU (graphics stack only), discrete for a dedicated card (adds ROCm compute, overdrive and LACT)";
+    };
+
+    rocm.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = cfg.mode == "discrete";
+      defaultText = "config.platformBlueprints.roles.gpuAmd.mode == \"discrete\"";
+      description = "Install the ROCm compute stack: kfd access, the CLR ICD and the ROCm inspection tools.";
+    };
+
+    overdrive.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = cfg.mode == "discrete";
+      defaultText = "config.platformBlueprints.roles.gpuAmd.mode == \"discrete\"";
+      description = "Enable the amdgpu overdrive interface for clock and voltage control.";
+    };
+
+    lact.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = cfg.mode == "discrete";
+      defaultText = "config.platformBlueprints.roles.gpuAmd.mode == \"discrete\"";
+      description = "Enable LACT, the AMD GPU fan and clock control daemon.";
+    };
 
     enable32BitGraphics = lib.mkOption {
       type = lib.types.bool;
@@ -60,8 +101,6 @@ in {
         libva-utils
         pciutils
         radeontop
-        rocmSmiWrapped
-        rocmPackages.rocminfo
         vulkan-tools
       ];
       description = "AMD GPU utility packages installed when installUtilities is true.";
@@ -98,16 +137,14 @@ in {
           libva
           libvdpau-va-gl
           mesa
-          rocmPackages.clr.icd
         ];
         extraPackages32 = lib.mkIf cfg.enable32BitGraphics (with pkgs.pkgsi686Linux; [
           mesa
         ]);
       };
 
-      services.udev.extraRules = ''
-        KERNEL=="kfd", GROUP="${cfg.renderGroup}", MODE="0660"
-      '';
+      hardware.amdgpu.overdrive.enable = cfg.overdrive.enable;
+      services.lact.enable = cfg.lact.enable;
 
       platformBlueprints.roles.gpuUtility = {
         enable = true;
@@ -124,19 +161,32 @@ in {
     }
 
     (lib.mkIf cfg.allowUnfreePackages {
-      nixpkgs.config.allowUnfreePredicate = lib.mkDefault (
-        pkg: let
-          name = lib.getName pkg;
-        in
-          lib.any (prefix: lib.hasPrefix prefix name) unfreeNamePrefixes
-      );
+      platformBlueprints.unfree.packages = unfreeGraphicsPackages;
+    })
+
+    (lib.mkIf (cfg.allowUnfreePackages && cfg.rocm.enable) {
+      platformBlueprints.unfree.packages = unfreeRocmPackages;
     })
 
     (lib.mkIf cfg.installUtilities {
       environment.systemPackages = cfg.packages;
     })
 
-    (lib.mkIf (cfg.rocmRuntimeDirectory != null) {
+    (lib.mkIf (cfg.installUtilities && cfg.rocm.enable) {
+      environment.systemPackages = rocmTools;
+    })
+
+    (lib.mkIf cfg.rocm.enable {
+      # kfd is the compute queue device; ROCm workloads cannot open the GPU
+      # without it.
+      services.udev.extraRules = ''
+        KERNEL=="kfd", GROUP="${cfg.renderGroup}", MODE="0660"
+      '';
+
+      hardware.graphics.extraPackages = [pkgs.rocmPackages.clr.icd];
+    })
+
+    (lib.mkIf (cfg.rocm.enable && cfg.rocmRuntimeDirectory != null) {
       systemd.tmpfiles.rules = [
         "d ${cfg.rocmRuntimeDirectory} 0755 root ${cfg.renderGroup} - -"
       ];
