@@ -44,6 +44,7 @@ Available module outputs:
 
 - `nixosModules.base`
 - `nixosModules.k3s`
+- `nixosModules.unfree`
 - `nixosModules.default`
 - `nixosModules.roleK3sBootstrap`
 - `nixosModules.roleK3sServer`
@@ -78,7 +79,8 @@ inventory:
 - `platformBlueprints.roles.longhornNode` installs generic Longhorn
   prerequisites and storage node labels.
 - `platformBlueprints.roles.gpuAmd` enables AMD graphics, ROCm utilities, and
-  AMD GPU node labels.
+  AMD GPU node labels. `mode = "apu"` keeps the graphics stack only;
+  `mode = "discrete"` adds ROCm compute, overdrive and LACT.
 - `platformBlueprints.roles.gpuNvidia` enables NVIDIA graphics, the container
   toolkit, and NVIDIA GPU node labels.
 - `platformBlueprints.roles.nodeLabelApplier` applies caller-owned labels and
@@ -91,9 +93,18 @@ inventory:
 Consumers own all sensitive inputs: node names, join tokens, device paths,
 driver branch overrides, and any cluster-specific labels.
 
+`platformBlueprints.unfree.packages` collects the unfree package names the
+enabled modules install: an exact `lib.getName`, a prefix ending in `*`
+(`rocm*` allows `rocminfo`), or a prefix ending in a hyphen (`amdgpu-`). One module owns `nixpkgs.config.allowUnfreePredicate` because two
+definitions of it conflict, so roles append only their own names and the
+predicate is set once the list is non-empty.
+
 The `workstation-example` check (x86_64-linux only) builds an example
-workstation that enables `platformBlueprints.roles.devWorkstation`, so CI
-proves the non-gaming stack evaluates and builds.
+workstation that enables `platformBlueprints.roles.devWorkstation` and an
+integrated-GPU `platformBlueprints.roles.gpuAmd`, so CI proves the non-gaming
+stack evaluates and builds. The `gpu-amd-modes` check compares that APU host
+against a discrete-card fixture: overdrive, LACT and the unfree ROCm names must
+follow `mode`.
 
 ## Reusable Services
 

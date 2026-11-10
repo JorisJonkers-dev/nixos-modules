@@ -31,6 +31,7 @@
     nixosModules = rec {
       base = ./modules/nixos/base.nix;
       k3s = ./modules/nixos/k3s.nix;
+      unfree = ./modules/nixos/unfree.nix;
 
       roleK3sBootstrap = ./modules/nixos/roles/k3s-bootstrap.nix;
       roleK3sServer = ./modules/nixos/roles/k3s-server.nix;
@@ -84,6 +85,10 @@
         samba = serviceSamba;
         ollamaRocm = serviceOllamaRocm;
         btrfsBackupSnapshots = serviceBtrfsBackupSnapshots;
+      };
+
+      platform = {
+        unfree = unfree;
       };
 
       default = {
@@ -142,6 +147,49 @@
               pkgs.runCommand "nixos-modules-workstation-example" {} ''
                 ln -s ${workstation.config.system.build.toplevel} "$out"
               '';
+
+          gpu-amd-modes = let
+            apu = import ./tests/workstation-example.nix {
+              inherit self nixpkgs;
+              system = "x86_64-linux";
+            };
+            discrete = lib.nixosSystem {
+              system = "x86_64-linux";
+              modules = [
+                self.nixosModules.roleGpuAmd
+                (
+                  {...}: {
+                    boot.loader.grub.enable = false;
+                    fileSystems."/".device = "gpu-amd-discrete-root";
+                    fileSystems."/".fsType = "ext4";
+                    system.stateVersion = "25.05";
+
+                    platformBlueprints.roles.gpuAmd = {
+                      enable = true;
+                      mode = "discrete";
+                    };
+                  }
+                )
+              ];
+            };
+            apuUnfree = apu.config.platformBlueprints.unfree.packages;
+            discreteUnfree = discrete.config.platformBlueprints.unfree.packages;
+            isRocmName = name: lib.hasPrefix "rocm" name || lib.hasPrefix "hip" name;
+          in
+            # An APU has no compute queue, so ROCm, overdrive and LACT must stay
+            # off and must not pull unfree compute packages into the predicate.
+            assert lib.assertMsg (!apu.config.hardware.amdgpu.overdrive.enable) "gpu-amd-modes: an APU must not enable amdgpu overdrive";
+            assert lib.assertMsg (!apu.config.services.lact.enable) "gpu-amd-modes: an APU must not enable LACT";
+            assert lib.assertMsg (builtins.filter isRocmName apuUnfree == []) "gpu-amd-modes: an APU must not allow unfree ROCm packages";
+            assert lib.assertMsg discrete.config.hardware.amdgpu.overdrive.enable "gpu-amd-modes: a discrete card must enable amdgpu overdrive";
+            assert lib.assertMsg discrete.config.services.lact.enable "gpu-amd-modes: a discrete card must enable LACT";
+            assert lib.assertMsg (builtins.any (name: lib.hasPrefix "rocm" name) discreteUnfree) "gpu-amd-modes: a discrete card must allow unfree ROCm packages";
+            # The prefixes must reach the predicate as prefixes: rocminfo and
+            # hipblas are separate packages, and an exact match would refuse them.
+            assert lib.assertMsg (discrete.config.nixpkgs.config.allowUnfreePredicate {name = "rocminfo-6.4.3";}) "gpu-amd-modes: the predicate must allow rocminfo on a discrete card";
+            assert lib.assertMsg (discrete.config.nixpkgs.config.allowUnfreePredicate {name = "hipblas-6.4.3";}) "gpu-amd-modes: the predicate must allow hipblas on a discrete card";
+            assert lib.assertMsg (!(discrete.config.nixpkgs.config.allowUnfreePredicate {name = "steam-1.0";})) "gpu-amd-modes: the predicate must refuse packages nobody allowed";
+              pkgs.runCommand "nixos-modules-gpu-amd-modes" {} "touch $out";
         })
         // {
           module-fixture = pkgs.runCommand "nixos-modules-module-fixture" {} ''

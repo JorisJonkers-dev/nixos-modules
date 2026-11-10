@@ -9,6 +9,7 @@ in
     inherit system;
     modules = [
       self.nixosModules.roleDevWorkstation
+      self.nixosModules.roleGpuAmd
       (
         {...}: {
           # Stands in for a real workstation: no hardware, no disks, so CI
@@ -19,6 +20,12 @@ in
           system.stateVersion = "25.05";
 
           platformBlueprints.roles.devWorkstation.enable = true;
+
+          # An integrated GPU: the graphics stack only, no ROCm compute.
+          platformBlueprints.roles.gpuAmd = {
+            enable = true;
+            mode = "apu";
+          };
         }
       )
     ];
