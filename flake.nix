@@ -91,6 +91,19 @@
       };
     };
 
+    overlays.default = final: _prev: {
+      kotlin-lsp = final.callPackage ./pkgs/kotlin-lsp/package.nix {};
+    };
+
+    # The upstream binary distribution is x86_64-linux only.
+    packages.x86_64-linux.kotlin-lsp = let
+      pkgs = import nixpkgs {
+        system = "x86_64-linux";
+        config.allowUnfreePredicate = pkg: lib.getName pkg == "kotlin-lsp";
+      };
+    in
+      pkgs.callPackage ./pkgs/kotlin-lsp/package.nix {};
+
     checks = forAllSystems (
       system: let
         pkgs = mkPkgs system;
