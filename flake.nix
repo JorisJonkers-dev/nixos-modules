@@ -129,11 +129,7 @@
             installedOutPaths = builtins.map (pkg: pkg.outPath) workstation.config.environment.systemPackages;
             corePackages = lib.zipListsWith (entry: pkg: {inherit entry pkg;}) agentKitPackages.core rolePackages;
             missingCore =
-              lib.findFirst ({
-                entry,
-                pkg,
-              }:
-                !builtins.elem pkg.outPath installedOutPaths)
+              lib.findFirst ({pkg, ...}: !builtins.elem pkg.outPath installedOutPaths)
               null
               corePackages;
           in
