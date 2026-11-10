@@ -9,12 +9,17 @@
 }: let
   cfg = config.platformBlueprints.roles.devWorkstation;
 
+  # nixos-modules entries resolve to this flake's own packages, which exist
+  # only for the platforms they are built for (kotlin-lsp is x86_64-only), so
+  # an entry this flake does not provide for the host is left out rather than
+  # failing evaluation on, say, aarch64.
+  ownPackages = self.packages.${pkgs.stdenv.hostPlatform.system} or {};
   resolve = entry:
     if entry.source == "nixos-modules"
-    then self.packages.${pkgs.stdenv.hostPlatform.system}.${entry.attr}
+    then ownPackages.${entry.attr} or null
     else lib.getAttrFromPath (lib.splitString "." entry.attr) pkgs;
 
-  corePackages = builtins.map resolve agentKitPackages.core;
+  corePackages = builtins.filter (pkg: pkg != null) (builtins.map resolve agentKitPackages.core);
 in {
   options.platformBlueprints.roles.devWorkstation = {
     enable = lib.mkEnableOption "dev workstation role: the toolchains, language servers and CLI tools agent-kit lists for NixOS";

@@ -137,6 +137,9 @@
               null
               corePackages;
           in
+            # x86_64 provides every core entry, so the lists line up one to one;
+            # a shorter list would make zipListsWith skip entries silently.
+            assert lib.assertMsg (builtins.length rolePackages == builtins.length agentKitPackages.core) "devWorkstation resolved ${toString (builtins.length rolePackages)} of ${toString (builtins.length agentKitPackages.core)} core packages";
             assert lib.assertMsg (missingCore == null) "workstation-example must install agent-kit core package ${missingCore.entry.attr}";
             # References the built toplevel, unlike module-fixture's drvPath,
             # so `nix flake check` builds the whole example workstation.
