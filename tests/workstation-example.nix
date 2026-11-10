@@ -12,6 +12,8 @@ in
       self.nixosModules.roleGpuAmd
       self.nixosModules.hardwareAmdCpu
       self.nixosModules.hardwareLaptop
+      self.nixosModules.desktopGnome
+      self.nixosModules.desktopTuning
       (
         {...}: {
           # Stands in for a real workstation: no hardware, no disks, so CI
@@ -34,6 +36,12 @@ in
             enable = true;
             convertible.enable = true;
             batteryChargeThreshold = 80;
+          };
+
+          platformBlueprints.desktop.gnome.enable = true;
+          platformBlueprints.desktop.tuning = {
+            enable = true;
+            preset = "laptop";
           };
         }
       )

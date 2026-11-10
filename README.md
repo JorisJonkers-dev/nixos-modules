@@ -70,6 +70,8 @@ Available module outputs:
 - `nixosModules.hardwareLaptop`
 - `nixosModules.hardwareRaspberryPiAarch64`
 - `nixosModules.imageRaspberryPiSdImage`
+- `nixosModules.desktopGnome`
+- `nixosModules.desktopTuning`
 
 ## Reusable Roles
 
@@ -107,11 +109,11 @@ definitions of it conflict, so roles append only their own names and the
 predicate is set once the list is non-empty.
 
 The `workstation-example` check (x86_64-linux only) builds an example
-workstation that enables `platformBlueprints.roles.devWorkstation` and an
-integrated-GPU `platformBlueprints.roles.gpuAmd`, so CI proves the non-gaming
-stack evaluates and builds. The `gpu-amd-modes` check compares that APU host
-against a discrete-card fixture: overdrive, LACT and the unfree ROCm names must
-follow `mode`.
+workstation that enables `platformBlueprints.roles.devWorkstation`, an
+integrated-GPU `platformBlueprints.roles.gpuAmd`, the GNOME desktop and the
+laptop tuning preset, so CI proves the non-gaming stack evaluates and builds.
+The `gpu-amd-modes` check compares that APU host against a discrete-card
+fixture: overdrive, LACT and the unfree ROCm names must follow `mode`.
 
 ## Reusable Hardware
 
@@ -143,6 +145,50 @@ The hardware modules cover the machine itself rather than a role:
 The `hardware-laptop` check (x86_64-linux only) asserts those settings on the
 example workstation and that a plain laptop leaves the convertible and
 threshold parts off.
+
+## Reusable Desktop
+
+The desktop modules cover a graphical session without deciding how it looks:
+
+- `platformBlueprints.desktop.gnome` enables GDM and GNOME, PipeWire with
+  32-bit ALSA and the PulseAudio compatibility layer, rtkit, NetworkManager,
+  Firefox, the GNOME keyring, the default font set and AppImage support
+  (`binfmt` plus the extra libraries the default FHS env lacks).
+  `displayRescue.enable` adds a user service that relights a monitor left dark
+  after a suspend, for displays behind adapters that do not come back on their
+  own. Themes, extensions, wallpapers and the rest of the look stay with the
+  consumer, and so do NetworkManager's unmanaged interfaces, its DNS handling
+  and the DHCP client.
+- `platformBlueprints.desktop.tuning` sets zram, the sysctl values, the
+  nix-daemon and terminal memory caps, transparent huge pages and the I/O
+  scheduler rules. `preset` has no default, so a host must choose: `"desktop"`
+  caps zram at 16 GiB and disables HDA audio power saving, `"laptop"` sizes
+  zram at half of RAM and keeps the power saving.
+
+```nix
+{
+  imports = [
+    inputs.nixos-modules.nixosModules.desktopGnome
+    inputs.nixos-modules.nixosModules.desktopTuning
+  ];
+
+  platformBlueprints.desktop.gnome = {
+    enable = true;
+    displayRescue.enable = true;
+  };
+
+  platformBlueprints.desktop.tuning = {
+    enable = true;
+    preset = "laptop";
+  };
+}
+```
+
+The `desktop-gnome` check (x86_64-linux only) asserts that the example
+workstation enables GNOME, GDM, PipeWire, NetworkManager, the AppImage binfmt
+and zram, leaves the rescue service off and installs no gaming package; a
+fixture with the rescue service and the desktop preset must create the user
+service and disable HDA power saving.
 
 ## Reusable Services
 
