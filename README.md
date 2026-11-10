@@ -89,8 +89,13 @@ inventory:
   taints with `kubectl`.
 - `platformBlueprints.roles.devWorkstation` installs the toolchains, language
   servers and CLI tools agent-kit lists for NixOS. The list comes from
-  agent-kit's registry (`registry/generated/nixos/packages.nix`, `core` group),
-  so tools are declared there, not here.
+  agent-kit's registry (`registry/generated/nixos/packages.nix`), so tools are
+  declared there, not here. `core` is always installed; `groups.kubernetes`,
+  `groups.latex` and `groups.polyglot` default on, `groups.android` off. The
+  role also provides corepack (pnpm and yarn per repository), nix-ld, JDK 21,
+  the npm global prefix on PATH, a Secret Service, OpenCode and
+  `agent-kit-setup` (`agentKitDir` sets its clone), and Docker:
+  `containerEngine = "rootless"` (default, DOCKER_HOST set) or `"rootful"`.
 
 Consumers own all sensitive inputs: node names, join tokens, device paths,
 driver branch overrides, and any cluster-specific labels.

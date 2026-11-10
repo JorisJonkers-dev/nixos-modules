@@ -112,13 +112,16 @@
     };
 
     # The upstream binary distribution is x86_64-linux only.
-    packages.x86_64-linux.kotlin-lsp = let
+    # Both upstream binary distributions are x86_64-linux only.
+    packages.x86_64-linux = let
       pkgs = import nixpkgs {
         system = "x86_64-linux";
         config.allowUnfreePredicate = pkg: lib.getName pkg == "kotlin-lsp";
       };
-    in
-      pkgs.callPackage ./pkgs/kotlin-lsp/package.nix {};
+    in {
+      kotlin-lsp = pkgs.callPackage ./pkgs/kotlin-lsp/package.nix {};
+      opencode = pkgs.callPackage ./pkgs/opencode/package.nix {};
+    };
 
     checks = forAllSystems (
       system: let
@@ -132,18 +135,27 @@
               inherit self nixpkgs;
               system = "x86_64-linux";
             };
-            rolePackages = workstation.config.platformBlueprints.roles.devWorkstation.packages;
-            installedOutPaths = builtins.map (pkg: pkg.outPath) workstation.config.environment.systemPackages;
-            corePackages = lib.zipListsWith (entry: pkg: {inherit entry pkg;}) agentKitPackages.core rolePackages;
-            missingCore =
-              lib.findFirst ({pkg, ...}: !builtins.elem pkg.outPath installedOutPaths)
-              null
-              corePackages;
+            cfg = workstation.config;
+            rolePackages = cfg.platformBlueprints.roles.devWorkstation.packages;
+            installedOutPaths = map (pkg: pkg.outPath) cfg.environment.systemPackages;
+            installedNames = map lib.getName cfg.environment.systemPackages;
+            # The groups the example leaves at their defaults: android is off.
+            expectedEntries = agentKitPackages.core ++ agentKitPackages.kubernetes ++ agentKitPackages.latex ++ agentKitPackages.polyglot;
+            entryPackages = lib.zipListsWith (entry: pkg: {inherit entry pkg;}) expectedEntries rolePackages;
+            missing = lib.findFirst ({pkg, ...}: !builtins.elem pkg.outPath installedOutPaths) null entryPackages;
+            androidNames = map (entry: lib.last (lib.splitString "." entry.attr)) agentKitPackages.android;
           in
-            # x86_64 provides every core entry, so the lists line up one to one;
-            # a shorter list would make zipListsWith skip entries silently.
-            assert lib.assertMsg (builtins.length rolePackages == builtins.length agentKitPackages.core) "devWorkstation resolved ${toString (builtins.length rolePackages)} of ${toString (builtins.length agentKitPackages.core)} core packages";
-            assert lib.assertMsg (missingCore == null) "workstation-example must install agent-kit core package ${missingCore.entry.attr}";
+            # x86_64 provides every entry, so the lists line up one to one; a
+            # shorter list would make zipListsWith skip entries silently.
+            assert lib.assertMsg (builtins.length rolePackages == builtins.length expectedEntries) "devWorkstation resolved ${toString (builtins.length rolePackages)} of ${toString (builtins.length expectedEntries)} packages of its default groups";
+            assert lib.assertMsg (missing == null) "workstation-example must install agent-kit package ${missing.entry.attr}";
+            assert lib.assertMsg (!(lib.any (name: builtins.elem name installedNames) androidNames)) "the android group is off by default";
+            assert lib.assertMsg cfg.virtualisation.docker.rootless.enable "rootless Docker is the default container engine";
+            assert lib.assertMsg cfg.virtualisation.docker.rootless.setSocketVariable "rootless Docker must point DOCKER_HOST at the user socket";
+            assert lib.assertMsg (!cfg.virtualisation.docker.enable) "the rootful daemon stays off by default";
+            assert lib.assertMsg cfg.programs.nix-ld.enable "nix-ld runs the prebuilt binaries agent-kit downloads";
+            assert lib.assertMsg (builtins.elem "agent-kit-setup" installedNames) "agent-kit-setup is installed";
+            assert lib.assertMsg (builtins.elem "vault" cfg.platformBlueprints.unfree.packages) "vault is allowed while the kubernetes group is on";
             # References the built toplevel, unlike module-fixture's drvPath,
             # so `nix flake check` builds the whole example workstation.
               pkgs.runCommand "nixos-modules-workstation-example" {} ''
