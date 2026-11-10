@@ -63,6 +63,9 @@
       hardwareRaspberryPiAarch64 = ./modules/nixos/hardware/raspberry-pi-aarch64.nix;
       imageRaspberryPiSdImage = ./modules/nixos/image/raspberry-pi-sd-image.nix;
 
+      desktopGnome = ./modules/nixos/desktop/gnome.nix;
+      desktopTuning = ./modules/nixos/desktop/tuning.nix;
+
       roles = {
         k3sBootstrap = roleK3sBootstrap;
         k3sServer = roleK3sServer;
@@ -87,6 +90,11 @@
         samba = serviceSamba;
         ollamaRocm = serviceOllamaRocm;
         btrfsBackupSnapshots = serviceBtrfsBackupSnapshots;
+      };
+
+      desktop = {
+        gnome = desktopGnome;
+        tuning = desktopTuning;
       };
 
       platform = {
@@ -240,6 +248,65 @@
             assert lib.assertMsg (!bareConfig.hardware.sensor.iio.enable) "laptop without convertible must leave the iio sensor off";
             assert lib.assertMsg (!(bareConfig.systemd.services ? laptop-charge-threshold)) "laptop without batteryChargeThreshold must not create laptop-charge-threshold";
               pkgs.runCommand "nixos-modules-hardware-laptop" {} "touch $out";
+
+          desktop-gnome = let
+            example = import ./tests/workstation-example.nix {
+              inherit self nixpkgs;
+              system = "x86_64-linux";
+            };
+            # The same modules with the parts the example leaves off turned on,
+            # so the check proves the rescue service and the desktop preset
+            # rather than only their defaults.
+            rescue = lib.nixosSystem {
+              system = "x86_64-linux";
+              modules = [
+                self.nixosModules.desktopGnome
+                self.nixosModules.desktopTuning
+                (
+                  {...}: {
+                    boot.loader.grub.enable = false;
+                    fileSystems."/".device = "desktop-gnome-fixture-root";
+                    fileSystems."/".fsType = "ext4";
+                    system.stateVersion = "25.05";
+
+                    platformBlueprints.desktop.gnome = {
+                      enable = true;
+                      displayRescue.enable = true;
+                    };
+
+                    platformBlueprints.desktop.tuning = {
+                      enable = true;
+                      preset = "desktop";
+                    };
+                  }
+                )
+              ];
+            };
+            exampleConfig = example.config;
+            rescueConfig = rescue.config;
+            # The desktop modules are generic: a gaming stack belongs to the
+            # consumer, so none of these may arrive through them.
+            gamingNames = [
+              "steam"
+              "gamescope"
+              "gamemode"
+              "lutris"
+              "heroic"
+              "mangohud"
+            ];
+            installedNames = map lib.getName exampleConfig.environment.systemPackages;
+          in
+            assert lib.assertMsg exampleConfig.services.desktopManager.gnome.enable "desktop-gnome: the example must enable GNOME";
+            assert lib.assertMsg exampleConfig.services.displayManager.gdm.enable "desktop-gnome: the example must enable GDM";
+            assert lib.assertMsg exampleConfig.services.pipewire.enable "desktop-gnome: the example must enable PipeWire";
+            assert lib.assertMsg exampleConfig.networking.networkmanager.enable "desktop-gnome: the example must enable NetworkManager";
+            assert lib.assertMsg exampleConfig.programs.appimage.binfmt "desktop-gnome: the example must register the AppImage binfmt";
+            assert lib.assertMsg (!(exampleConfig.systemd.user.services ? "display-rescue")) "desktop-gnome: display rescue stays off unless a host asks for it";
+            assert lib.assertMsg exampleConfig.zramSwap.enable "desktop-gnome: the example must enable zram";
+            assert lib.assertMsg (!(lib.any (name: builtins.elem name installedNames) gamingNames)) "desktop-gnome: the desktop modules must not install a gaming package";
+            assert lib.assertMsg (rescueConfig.systemd.user.services ? "display-rescue") "desktop-gnome: displayRescue must create the display-rescue user service";
+            assert lib.assertMsg (lib.hasInfix "power_save=0" rescueConfig.boot.extraModprobeConfig) "desktop-gnome: the desktop preset must disable HDA power saving";
+              pkgs.runCommand "nixos-modules-desktop-gnome" {} "touch $out";
         })
         // {
           module-fixture = pkgs.runCommand "nixos-modules-module-fixture" {} ''
