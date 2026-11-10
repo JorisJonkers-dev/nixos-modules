@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/JorisJonkers-dev/nixos-modules/compare/v0.4.1...v0.5.0) (2026-11-10)
+
+
+### Features
+
+* **desktop:** GNOME desktop and desktop/laptop tuning modules ([#31](https://github.com/JorisJonkers-dev/nixos-modules/issues/31)) ([d0061fe](https://github.com/JorisJonkers-dev/nixos-modules/commit/d0061fe54ee0750bb908c84b7eb56d9d90f1a51e))
+* devWorkstation role tracer, kotlin-lsp package and a built example workstation ([#26](https://github.com/JorisJonkers-dev/nixos-modules/issues/26)) ([4148ecd](https://github.com/JorisJonkers-dev/nixos-modules/commit/4148ecd9a3a0b581974867f40c58de176d62e763))
+* **hardware:** AMD CPU and laptop modules ([#29](https://github.com/JorisJonkers-dev/nixos-modules/issues/29)) ([431f2dc](https://github.com/JorisJonkers-dev/nixos-modules/commit/431f2dce00b3179316d7c779033e8450b4b1bfc8))
+* **roles:** complete devWorkstation: groups, runtimes, Docker and setup wrapper ([#30](https://github.com/JorisJonkers-dev/nixos-modules/issues/30)) ([5e5748d](https://github.com/JorisJonkers-dev/nixos-modules/commit/5e5748d60862e052a12631915441ae3d753ede6d))
+* **roles:** unfree allow-list and APU/discrete modes for the AMD GPU role ([#28](https://github.com/JorisJonkers-dev/nixos-modules/issues/28)) ([cbaffd6](https://github.com/JorisJonkers-dev/nixos-modules/commit/cbaffd6163391fe9f40040373c168c6ea42ddbda))
+
 ## [0.4.1](https://github.com/JorisJonkers-dev/nixos-modules/compare/v0.4.0...v0.4.1) (2026-10-19)
 
 
