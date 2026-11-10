@@ -58,6 +58,8 @@
       roleGpuAMD = roleGpuAmd;
       roleGpuNVIDIA = roleGpuNvidia;
 
+      hardwareAmdCpu = ./modules/nixos/hardware/amd-cpu.nix;
+      hardwareLaptop = ./modules/nixos/hardware/laptop.nix;
       hardwareRaspberryPiAarch64 = ./modules/nixos/hardware/raspberry-pi-aarch64.nix;
       imageRaspberryPiSdImage = ./modules/nixos/image/raspberry-pi-sd-image.nix;
 
@@ -190,6 +192,42 @@
             assert lib.assertMsg (discrete.config.nixpkgs.config.allowUnfreePredicate {name = "hipblas-6.4.3";}) "gpu-amd-modes: the predicate must allow hipblas on a discrete card";
             assert lib.assertMsg (!(discrete.config.nixpkgs.config.allowUnfreePredicate {name = "steam-1.0";})) "gpu-amd-modes: the predicate must refuse packages nobody allowed";
               pkgs.runCommand "nixos-modules-gpu-amd-modes" {} "touch $out";
+
+          hardware-laptop = let
+            example = import ./tests/workstation-example.nix {
+              inherit self nixpkgs;
+              system = "x86_64-linux";
+            };
+            # The same module with the optional halves left at their defaults,
+            # so the check proves they stay off rather than merely existing.
+            bare = lib.nixosSystem {
+              system = "x86_64-linux";
+              modules = [
+                self.nixosModules.hardwareLaptop
+                (
+                  {...}: {
+                    boot.loader.grub.enable = false;
+                    fileSystems."/".device = "laptop-fixture-root";
+                    fileSystems."/".fsType = "ext4";
+                    system.stateVersion = "25.05";
+
+                    platformBlueprints.hardware.laptop.enable = true;
+                  }
+                )
+              ];
+            };
+            exampleConfig = example.config;
+            bareConfig = bare.config;
+          in
+            assert lib.assertMsg exampleConfig.services.power-profiles-daemon.enable "laptop must enable power-profiles-daemon";
+            assert lib.assertMsg exampleConfig.services.fwupd.enable "laptop must enable fwupd";
+            assert lib.assertMsg exampleConfig.hardware.sensor.iio.enable "convertible must enable the iio sensor";
+            assert lib.assertMsg (exampleConfig.systemd.services ? laptop-charge-threshold) "batteryChargeThreshold must create the laptop-charge-threshold service";
+            assert lib.assertMsg (builtins.elem "kvm-amd" exampleConfig.boot.kernelModules) "amdCpu must load kvm-amd";
+            assert lib.assertMsg (builtins.elem "amd_pstate=active" exampleConfig.boot.kernelParams) "amdCpu must set amd_pstate=active";
+            assert lib.assertMsg (!bareConfig.hardware.sensor.iio.enable) "laptop without convertible must leave the iio sensor off";
+            assert lib.assertMsg (!(bareConfig.systemd.services ? laptop-charge-threshold)) "laptop without batteryChargeThreshold must not create laptop-charge-threshold";
+              pkgs.runCommand "nixos-modules-hardware-laptop" {} "touch $out";
         })
         // {
           module-fixture = pkgs.runCommand "nixos-modules-module-fixture" {} ''

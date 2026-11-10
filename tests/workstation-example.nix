@@ -10,6 +10,8 @@ in
     modules = [
       self.nixosModules.roleDevWorkstation
       self.nixosModules.roleGpuAmd
+      self.nixosModules.hardwareAmdCpu
+      self.nixosModules.hardwareLaptop
       (
         {...}: {
           # Stands in for a real workstation: no hardware, no disks, so CI
@@ -25,6 +27,13 @@ in
           platformBlueprints.roles.gpuAmd = {
             enable = true;
             mode = "apu";
+          };
+
+          platformBlueprints.hardware.amdCpu.enable = true;
+          platformBlueprints.hardware.laptop = {
+            enable = true;
+            convertible.enable = true;
+            batteryChargeThreshold = 80;
           };
         }
       )
