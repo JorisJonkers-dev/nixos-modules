@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/JorisJonkers-dev/nixos-modules/compare/v0.5.0...v0.5.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **hygiene:** never cancel a run of the required hygiene checks ([#34](https://github.com/JorisJonkers-dev/nixos-modules/issues/34)) ([f3af422](https://github.com/JorisJonkers-dev/nixos-modules/commit/f3af422f23e6479748412a8bb1c22577ac936410))
+
 ## [0.5.0](https://github.com/JorisJonkers-dev/nixos-modules/compare/v0.4.1...v0.5.0) (2026-11-10)
 
 
